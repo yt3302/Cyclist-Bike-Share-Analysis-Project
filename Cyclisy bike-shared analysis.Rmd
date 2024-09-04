@@ -1,14 +1,34 @@
-### How do annual members and casual riders use Cyclistic bikes differently?
+---
+title: "Cyclistic Bike Usage Analysis"
+author: "Yt"
+date: "2024-08-19"
+output:
+  html_document: default
+  pdf_document: default
+---
 
-## Prepare
-# Load library
-library(tidyverse)  #helps wrangle data
-library(lubridate)  #helps wrangle date attributes
-library(ggplot2)  #helps visualize data
-library(dplyr) #helps clean data
-library(tidyr) #helps clean data
+## Introduction
 
-# Import data
+This document presents an analysis of Cyclistic bike usage, comparing how annual members and casual riders use the bikes differently. The analysis covers usage frequency, ride duration, monthly and daily trends, and provides insights into user behavior.
+
+## Data Preparation
+
+```{r loading packages}
+library(tidyverse)
+library(lubridate)
+library(ggplot2)
+library(dplyr)
+library(tidyr)
+```
+
+```{r}
+# Verify the working directory
+getwd()
+
+# List files in the working directory
+list.files()
+```
+```{r importing data}
 tripdata_202212 <- read.csv("/Users/yitingcheng/Documents/Certificates/Google/Basic/8. Case Study/Case Study 1/Raw Data/202212-divvy-tripdata.csv")
 tripdata_202301 <- read.csv("/Users/yitingcheng/Documents/Certificates/Google/Basic/8. Case Study/Case Study 1/Raw Data/202301-divvy-tripdata.csv")
 tripdata_202302 <- read.csv("/Users/yitingcheng/Documents/Certificates/Google/Basic/8. Case Study/Case Study 1/Raw Data/202302-divvy-tripdata.csv")
@@ -21,35 +41,9 @@ tripdata_202308 <- read.csv("/Users/yitingcheng/Documents/Certificates/Google/Ba
 tripdata_202309 <- read.csv("/Users/yitingcheng/Documents/Certificates/Google/Basic/8. Case Study/Case Study 1/Raw Data/202309-divvy-tripdata.csv")
 tripdata_202310 <- read.csv("/Users/yitingcheng/Documents/Certificates/Google/Basic/8. Case Study/Case Study 1/Raw Data/202310-divvy-tripdata.csv")
 tripdata_202311 <- read.csv("/Users/yitingcheng/Documents/Certificates/Google/Basic/8. Case Study/Case Study 1/Raw Data/202311-divvy-tripdata.csv")
+```
 
-# Check columns name
-colnames(tripdata_202212)
-colnames(tripdata_202301)
-colnames(tripdata_202302)
-colnames(tripdata_202303)
-colnames(tripdata_202304)
-colnames(tripdata_202305)
-colnames(tripdata_202306)
-colnames(tripdata_202307)
-colnames(tripdata_202308)
-colnames(tripdata_202309)
-colnames(tripdata_202310)
-colnames(tripdata_202311)
-
-# Check the structure
-str(tripdata_202212)
-str(tripdata_202301)
-str(tripdata_202302)
-str(tripdata_202303)
-str(tripdata_202304)
-str(tripdata_202305)
-str(tripdata_202306)
-str(tripdata_202307)
-str(tripdata_202308)
-str(tripdata_202309)
-str(tripdata_202310)
-str(tripdata_202311)
-
+```{r combine data}
 # Combine all dataset
 all_trips <- bind_rows(
   tripdata_202212,
@@ -65,71 +59,32 @@ all_trips <- bind_rows(
   tripdata_202310,
   tripdata_202311
 )
+```
 
+## Data Processing
 
-## Process
-# Numbers of rows
-nrow(all_trips)
-
-colnames(all_trips)
-
-head(all_trips)
-
-str(all_trips)
-
-# Statistical summary of numeric data
-summary(all_trips)
-
-# Convert data type
+```{r data processing}
+# Convert data types and create new columns
 all_trips <- all_trips %>%
   mutate(
     started_at = ymd_hms(started_at),
-    ended_at = ymd_hms(ended_at)
-  )
+    ended_at = ymd_hms(ended_at),
+    date = as.Date(started_at),
+    year = format(date, "%Y"),
+    month = format(date, "%m"),
+    day = format(date, "%d"),
+    day_of_week = format(date, "%A"),
+    ride_length = as.numeric(difftime(ended_at, started_at, units = "mins"))
+  ) %>%
+  filter(ride_length > 0 & ride_length <= 1440) %>%
+  drop_na()
+```
 
-str(all_trips)
+## Analysis
 
-# List the date, year, month, day into columns 
-all_trips$date <- as.Date(all_trips$started_at) #The default format is yyyy-mm-dd
-all_trips$year <- format(as.Date(all_trips$date), "%Y")
-all_trips$month <- format(as.Date(all_trips$date), "%m")
-all_trips$day <- format(as.Date(all_trips$date), "%d")
-all_trips$day_of_week <- format(as.Date(all_trips$date), "%A") #"%A" returns full name of the day
-
-colnames(all_trips)
-head(all_trips)
-
-# Calculate the difference in time into ride_length
-all_trips <- all_trips %>%
-  mutate(
-    ride_length = difftime(ended_at, started_at, units = "mins")
-  )
-
-colnames(all_trips)
-head(all_trips)
-str(all_trips)
-
-# Convert data type to numeric for calculation
-all_trips$ride_length <- as.numeric(all_trips$ride_length)
-is.numeric(all_trips$ride_length)
-
-View(all_trips)
-
-# Remove unnecessary data
-all_trips2 <- all_trips[!(all_trips$ride_length <= 0 | all_trips$ride_length > 1440),]
-all_trips2 <- drop_na(all_trips2)
-summary(all_trips2)
-View(all_trips2)
-
-# Check duplicate data
-duplicates <- duplicated(all_trips2)
-num_duplicates <- sum(duplicates)
-num_duplicates
-
-
-## Analyze
-# Summary statistics by user type
-summary_by_type <- all_trips2 %>%
+### Summary Statistics by User Type
+```{r}
+summary_by_type <- all_trips %>%
   group_by(member_casual) %>%
   summarise(
     Total_Rides = n(),
@@ -140,70 +95,93 @@ summary_by_type <- all_trips2 %>%
   )
 
 print(summary_by_type)
+```
 
-# Aggregating ride counts by month and user type
-monthly_trends <- all_trips2 %>%
+### Total Ride Analysis
+#### Monthly Trends
+```{r monthly trends}
+monthly_trends <- all_trips %>%
   group_by(year, month, member_casual) %>%
   summarise(Total_Rides = n(), .groups = 'drop')
-print(n=24, monthly_trends)
-# Plot monthly ride trends in line plot
+
+# Line plot
 ggplot(monthly_trends, aes(x = as.Date(paste(year, month, "01", sep = "-")), y = Total_Rides, color = member_casual)) +
   geom_line() +
   labs(title = "Monthly Ride Trends by User Type", x = "Month", y = "Total Rides") +
   theme_minimal()
-# Plot monthly ride trends in bar plot
+
+# Bar plot
 ggplot(monthly_trends, aes(x = month, y = Total_Rides, fill = member_casual)) +
   geom_bar(stat = "identity", position = "dodge") +
   labs(title = "Monthly Ride Trends by User Type", x = "Month", y = "Total Rides") +
   theme_minimal()
+```
 
-# Aggregating ride counts by day of week and user type
-day_of_week_trends <- all_trips2 %>%
-  mutate(day_of_week = factor(day_of_week, levels = c("Monday", "Tuesday", "Wednesday", "Thursday", "Friday", "Saturday", "Sunday"))) %>%
+#### Day of Week Trends
+```{r day of week trends}
+day_of_week_trends <- all_trips %>%
   group_by(day_of_week, member_casual) %>%
   summarise(Total_Rides = n(), .groups = 'drop')
-print(day_of_week_trends)
-# Plot day of week usage
+
 ggplot(day_of_week_trends, aes(x = day_of_week, y = Total_Rides, fill = member_casual)) +
   geom_bar(stat = "identity", position = "dodge") +
   labs(title = "Total Rides by Day of Week and User Type", x = "Day of Week", y = "Total Rides") +
   theme_minimal()
+```
 
-# Aggregating average ride lengths by month and user type
-monthly_ride_length <- all_trips2 %>%
+### Ride Length Analysis
+#### Monthly Ride Length 
+```{r monthly ride length}
+monthly_ride_length <- all_trips %>%
   group_by(year, month, member_casual) %>%
   summarise(average_ride_length = mean(ride_length), .groups = 'drop')
-print(n=24, monthly_ride_length)
-# Plot monthly ride length in line plot
+
+# Line plot
 ggplot(monthly_ride_length, aes(x = as.Date(paste(year, month, "01", sep = "-")), y = average_ride_length, color = member_casual)) +
   geom_line() +
   labs(title = "Monthly Ride Length by User Type", x = "Month", y = "Average Ride Length") +
   theme_minimal()
-# Plot monthly ride trends in bar plot
+
+# Bar plot
 ggplot(monthly_ride_length, aes(x = month, y = average_ride_length, fill = member_casual)) +
   geom_bar(stat = "identity", position = "dodge") +
   labs(title = "Monthly Ride Length by User Type", x = "Month", y = "Average Ride Length") +
   theme_minimal()
+```
 
-# Aggregating average ride lengths by day of week and user type
-daily_ride_length <- all_trips2 %>%
-  mutate(day_of_week = factor(day_of_week, levels = c("Monday", "Tuesday", "Wednesday", "Thursday", "Friday", "Saturday", "Sunday"))) %>%
+#### Daily Ride Length 
+```{r daily ride length}
+daily_ride_length <- all_trips %>%
   group_by(day_of_week, member_casual) %>%
   summarise(average_ride_length = mean(ride_length), .groups = 'drop')
-print(daily_ride_length)
-# Plot day of week ride length
+
 ggplot(daily_ride_length, aes(x = day_of_week, y = average_ride_length, fill = member_casual)) +
   geom_bar(stat = "identity", position = "dodge") +
   labs(title = "Average Ride Length by Day of Week and User Type", x = "Day of Week", y = "Average Ride Length") +
   theme_minimal()
+```
 
+## Conclusion
+1. Usage Frequency
+Annual Members: Use Cyclistic bikes significantly more frequently than casual riders, indicating consistent and regular usage.
+Casual Riders: Have fewer rides overall, suggesting less frequent use, possibly for specific occasions.
+2. Ride Duration
+Annual Members: Generally take shorter rides, averaging 12.0 minutes, indicating usage for commuting or shorter trips.
+Casual Riders: Tend to have longer rides on average, averaging 20.5 minutes, suggesting leisure or longer trips.
+3. Monthly Trends
+Annual Members: Show more consistent usage patterns throughout the year.
+Casual Riders: Exhibit more fluctuations in ride volume, with noticeable peaks and troughs.
+4. Day of the Week Trends
+Annual Members: Higher ride volumes on weekdays, especially Tuesday and Thursday.
+Casual Riders: Prefer weekends, particularly Saturdays and Sundays.
+5. Monthly Average Ride Lengths
+Annual Members: Have stable, shorter average ride lengths.
+Casual Riders: Show varying, longer average ride lengths.
+6. Daily Average Ride Lengths
+Annual Members: Maintain consistent average ride lengths throughout the week.
+Casual Riders: Experience longer average ride lengths on weekends.
 
-
-
-
-
-
-
-
+## Summary
+Annual members use Cyclistic bikes more frequently and for shorter, more utilitarian trips, often during weekdays. Casual riders use the bikes less frequently but for longer trips, especially on weekends. These differences can inform targeted marketing strategies and operational adjustments.
 
 
